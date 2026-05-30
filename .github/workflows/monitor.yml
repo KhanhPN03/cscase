@@ -1,0 +1,259 @@
+# ============================================================================
+# .github/workflows/monitor.yml
+# ============================================================================
+# CSGOCASES Promo Code Monitor — GitHub Actions workflow
+#
+# Runs every 5 minutes (GitHub minimum cron granularity).
+# On each run:
+#   1. Checks out the repo (including current state.json)
+#   2. Installs Python 3.12 + pip dependencies (cached by hash)
+#   3. Installs Playwright Chromium (cached by requirements.txt hash)
+#   4. Runs main.py — all monitors execute, emails fire on new findings
+#   5. Commits the updated state.json back to the repo
+#
+# Required Secrets (Settings → Secrets and variables → Actions → New secret):
+#   GMAIL_USER          Sender Gmail address        e.g. yourbot@gmail.com
+#   GMAIL_APP_PASSWORD  16-char Google App Password (NOT your account password)
+#   NOTIFY_EMAIL        Recipient email address
+#
+# Optional Secrets (uncomment the relevant env: lines below to activate):
+#   DISCORD_BOT_TOKEN   Discord bot token for channel message reading
+#   DISCORD_USER_TOKEN  User token fallback (ToS risk — use bot token instead)
+#   WEBPAGE_URLS        Comma-separated URLs to watch for content changes
+#   NOTIFY_DRY_RUN      Set to "true" to log alerts but never send emails
+#
+# How to get a Gmail App Password:
+#   1. https://myaccount.google.com/security
+#   2. Enable 2-Step Verification
+#   3. Search "App Passwords" → Mail → Other → copy 16-char password
+#   4. Add as GMAIL_APP_PASSWORD secret in this repo
+# ============================================================================
+
+name: CSGOCASES Promo Code Monitor
+
+# ── Triggers ─────────────────────────────────────────────────────────────────
+on:
+  # Every 5 minutes — GitHub's minimum cron interval.
+  # Actual execution may be delayed 1–3 min under heavy GitHub load.
+  schedule:
+    - cron: "*/5 * * * *"
+
+  # Manual trigger from the GitHub Actions UI (Actions tab → Run workflow)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — run all monitors but do NOT send emails"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+      test_email:
+        description: "Send a test email and exit (verifies Gmail config)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+      monitor_only:
+        description: "Run a specific monitor class (leave blank for all)"
+        required: false
+        default: ""
+        type: string
+
+# ── Concurrency ───────────────────────────────────────────────────────────────
+# Only one run at a time. If a new cron fires while the previous is still
+# running, the new run queues (does NOT cancel the previous).
+# This prevents state.json race conditions on git push.
+concurrency:
+  group: monitor-${{ github.ref }}
+  cancel-in-progress: false
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+  monitor:
+    name: "Run Promo Monitor"
+    runs-on: ubuntu-latest
+
+    # Hard ceiling — Playwright startup + full monitor pass should be < 8 min.
+    # Set to 12 to give headroom without wasting minutes on hangs.
+    timeout-minutes: 12
+
+    permissions:
+      contents: write    # needed to commit state.json back to the repo
+
+    # ── Environment variables available to ALL steps ──────────────────────────
+    # Override any of these by adding the corresponding GitHub Secret.
+    env:
+      # ── Required: Gmail credentials ─────────────────────────────────────────
+      GMAIL_USER:         ${{ secrets.GMAIL_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      NOTIFY_EMAIL:       ${{ secrets.NOTIFY_EMAIL }}
+
+      # ── Optional: Dry run / test mode ───────────────────────────────────────
+      # Set NOTIFY_DRY_RUN secret to "true" to run without ever sending emails.
+      NOTIFY_DRY_RUN:  ${{ secrets.NOTIFY_DRY_RUN }}
+
+      # ── Optional: Playwright / browser config ────────────────────────────────
+      # Pin browser cache to a known path so actions/cache can find it.
+      PLAYWRIGHT_BROWSERS_PATH: /home/runner/.cache/ms-playwright
+
+      # ── Optional: Webpage monitor ───────────────────────────────────────────
+      # Add WEBPAGE_URLS as a repo secret (comma-separated) to watch extra URLs.
+      # Default (from code): https://csgocases.com/case/instagram-1
+      WEBPAGE_URLS: ${{ secrets.WEBPAGE_URLS }}
+
+      # ── Optional: Discord monitor ────────────────────────────────────────────
+      # Bot token is recommended — get one free at discord.com/developers
+      DISCORD_BOT_TOKEN:  ${{ secrets.DISCORD_BOT_TOKEN }}
+      # User token fallback (uncomment only if you understand the ToS risk):
+      # DISCORD_USER_TOKEN: ${{ secrets.DISCORD_USER_TOKEN }}
+
+      # ── Optional: Platform-specific overrides ────────────────────────────────
+      # Uncomment and add the corresponding GitHub Secret to customise targets.
+      # INSTAGRAM_ACCOUNT:          ${{ secrets.INSTAGRAM_ACCOUNT }}
+      # FACEBOOK_PAGE:              ${{ secrets.FACEBOOK_PAGE }}
+      # REDDIT_SUBREDDITS:          ${{ secrets.REDDIT_SUBREDDITS }}
+      # TWITTER_SNSCRAPE_ACCOUNT:   ${{ secrets.TWITTER_SNSCRAPE_ACCOUNT }}
+      # YOUTUBE_CHANNELS:           ${{ secrets.YOUTUBE_CHANNELS }}
+      # TELEGRAM_CHANNELS:          ${{ secrets.TELEGRAM_CHANNELS }}
+
+    steps:
+      # ── Step 1: Checkout ──────────────────────────────────────────────────
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          # Use the default GITHUB_TOKEN — already has write access via
+          # the permissions block above.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Shallow clone is fine — we only need the latest state.json
+          fetch-depth: 1
+
+      # ── Step 2: Set up Python 3.12 ────────────────────────────────────────
+      - name: "Set up Python 3.12"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          # Cache the pip download cache (not the venv) keyed by requirements.txt.
+          # setup-python handles the cache restore/save automatically.
+          cache: "pip"
+          cache-dependency-path: "requirements.txt"
+
+      # ── Step 3: Install Python dependencies ──────────────────────────────
+      - name: "Install Python dependencies"
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── Step 4: Cache Playwright browser binaries ─────────────────────────
+      # The Playwright Python package (~2 MB) is covered by the pip cache above.
+      # The browser binaries (Chromium, ~130 MB) need their own cache entry
+      # because `playwright install` downloads them separately.
+      - name: "Cache Playwright Chromium browser"
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/ms-playwright
+          # Invalidate when requirements.txt changes (new playwright version)
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            playwright-chromium-${{ runner.os }}-
+
+      # ── Step 5: Install Playwright Chromium ───────────────────────────────
+      # --with-deps installs required OS-level packages (libnss3, libatk, etc.)
+      # Skip the full install if the cache was a perfect hit; still run
+      # --with-deps to ensure OS packages are present (they aren't cached).
+      - name: "Install Playwright Chromium (+ system deps)"
+        run: playwright install chromium --with-deps
+
+      # ── Step 6: Run the monitor ───────────────────────────────────────────
+      - name: "Run CSGOCASES Promo Monitor"
+        id: monitor
+        run: |
+          # Build CLI flags from workflow_dispatch inputs (empty on cron runs)
+          FLAGS=""
+
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+            echo "Mode: DRY RUN (no emails will be sent)"
+          fi
+
+          if [ "${{ github.event.inputs.test_email }}" = "true" ]; then
+            FLAGS="$FLAGS --test-email"
+            echo "Mode: TEST EMAIL (will send one test email and exit)"
+          fi
+
+          if [ -n "${{ github.event.inputs.monitor_only }}" ]; then
+            FLAGS="$FLAGS --monitor ${{ github.event.inputs.monitor_only }}"
+            echo "Monitor filter: ${{ github.event.inputs.monitor_only }}"
+          fi
+
+          echo "Executing: python main.py $FLAGS"
+          python main.py $FLAGS
+
+      # ── Step 7: Write job summary ─────────────────────────────────────────
+      # Visible in the Actions UI under the Summary tab for this run.
+      - name: "Write job summary"
+        if: always()
+        run: |
+          echo "## CSGOCASES Monitor Run" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field        | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Trigger**  | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Run ID**   | \`${{ github.run_id }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit**   | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Result**   | ${{ steps.monitor.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.monitor.outcome }}" = "success" ]; then
+            echo "✅ Monitor completed successfully." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Monitor run failed — check the logs above." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # ── Step 8: Upload logs on failure ────────────────────────────────────
+      # If main.py crashes, upload any log files so you can debug without
+      # waiting for the next run.
+      - name: "Upload logs on failure"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-failure-logs-${{ github.run_id }}
+          path: |
+            *.log
+            logs/
+            state.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # ── Step 9: Commit updated state.json ────────────────────────────────
+      # Persists the deduplication state (seen IDs, known codes, hashes) so
+      # the next run doesn't re-alert on already-seen items.
+      #
+      # Uses [skip ci] in the commit message to prevent triggering another
+      # workflow run for this commit.
+      - name: "Commit updated state.json"
+        # Run even if the monitor step errored — partial state is still useful
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage state.json (the only file the monitor writes to)
+          git add state.json
+
+          # Only create a commit if state.json actually changed
+          if git diff --cached --quiet; then
+            echo "state.json unchanged — skipping commit."
+          else
+            TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+            git commit -m "chore: update monitor state — ${TIMESTAMP} [skip ci]"
+            git push
+            echo "state.json committed and pushed."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

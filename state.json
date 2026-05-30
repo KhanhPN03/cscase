@@ -1,0 +1,44 @@
+{
+  "seen_ids": {},
+  "twitter": {
+    "csgocasescom": {
+      "latest_id": "0",
+      "latest_time": null
+    }
+  },
+  "instagram": {
+    "csgocasescom": {
+      "seen_hashes": [],
+      "latest_hash": null,
+      "latest_url": null,
+      "last_checked": null
+    }
+  },
+  "facebook": {
+    "csgocasescom": {
+      "seen_hashes": [],
+      "latest_hash": null,
+      "latest_url": null,
+      "last_checked": null
+    }
+  },
+  "discord": {
+    "1279122419994595361": {
+      "latest_message_id": "0",
+      "latest_timestamp": null,
+      "last_checked": null
+    }
+  },
+  "webpage": {
+    "csgocases.com/case/instagram-1": {
+      "content_hash": "",
+      "content_snippet": "",
+      "last_changed": null,
+      "last_checked": null,
+      "check_count": 0
+    }
+  },
+  "known_codes": [],
+  "last_run": null
+}
+

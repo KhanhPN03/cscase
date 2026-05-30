@@ -1,0 +1,20 @@
+# Core HTTP
+requests==2.32.3
+
+# HTML parsing (site monitor + Telegram monitor)
+beautifulsoup4==4.12.3
+lxml==5.2.2          # fast HTML/XML parser backend for BeautifulSoup
+
+# Twitter/X scraping — no API key required
+# Install from PyPI (may need git version for latest fixes):
+#   pip install snscrape
+# or latest from source:
+#   pip install git+https://github.com/JustAnotherArchivist/snscrape.git
+snscrape
+
+# Instagram scraping — async Playwright browser automation
+# After pip install, also run: playwright install chromium
+playwright>=1.44.0
+
+# Local development only (not needed in GitHub Actions)
+python-dotenv==1.0.1
