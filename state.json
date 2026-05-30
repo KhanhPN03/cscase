@@ -16,10 +16,12 @@
   },
   "facebook": {
     "csgocasescom": {
-      "seen_hashes": [],
-      "latest_hash": null,
-      "latest_url": null,
-      "last_checked": null
+      "seen_hashes": [
+        "5a12b3769da9008f01dcf0601ea33722b421564765e12d701d45cad64bfc23b4"
+      ],
+      "latest_hash": "5a12b3769da9008f01dcf0601ea33722b421564765e12d701d45cad64bfc23b4",
+      "latest_url": "https://www.facebook.com/csgocasescom/",
+      "last_checked": "2026-05-30T15:21:02Z"
     }
   },
   "discord": {
@@ -39,6 +41,5 @@
     }
   },
   "known_codes": [],
-  "last_run": null
+  "last_run": "2026-05-30T15:21:26Z"
 }
-
