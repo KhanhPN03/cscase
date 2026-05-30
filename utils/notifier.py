@@ -14,7 +14,7 @@ Both modules send Gmail notifications; they coexist and serve different roles:
                     Uses GMAIL_APP_PASS env var.
 
   notifier.py       Full-featured standalone utility (this file).
-  (this file)       - Uses GMAIL_APP_PASSWORD env var (as specified).
+  (this file)       - Uses GMAIL_APP_PASS env var (as specified).
                     - Rich HTML template with animated header, code boxes,
                       multi-code layout, content-change vs. code-found modes.
                     - Retry logic (up to 3 attempts with back-off).
@@ -26,7 +26,7 @@ Both modules send Gmail notifications; they coexist and serve different roles:
 Environment variables
 ----------------------
   GMAIL_USER           Sender address        e.g. yourbot@gmail.com
-  GMAIL_APP_PASSWORD   16-char App Password  (Google Account > Security > App Passwords)
+  GMAIL_APP_PASS   16-char App Password  (Google Account > Security > App Passwords)
   NOTIFY_EMAIL         Recipient address     (defaults to GMAIL_USER if not set)
   NOTIFY_DRY_RUN       Set to "true" to log but NOT send (useful for CI testing)
   NOTIFY_MAX_RETRIES   SMTP retry attempts, default 3
@@ -37,7 +37,7 @@ How to get an App Password
   1. Go to https://myaccount.google.com/security
   2. Enable 2-Step Verification (required)
   3. Search "App Passwords" → Create → select "Mail" + "Other (custom name)"
-  4. Copy the 16-character password into GMAIL_APP_PASSWORD
+  4. Copy the 16-character password into GMAIL_APP_PASS
 
 Public API
 -----------
@@ -85,7 +85,7 @@ log = get_logger("notifier")
 # ---------------------------------------------------------------------------
 
 GMAIL_USER:         str = os.getenv("GMAIL_USER", "").strip()
-GMAIL_APP_PASSWORD: str = os.getenv("GMAIL_APP_PASSWORD", "").strip()
+GMAIL_APP_PASS: str = os.getenv("GMAIL_APP_PASS", "").strip()
 NOTIFY_EMAIL:       str = os.getenv("NOTIFY_EMAIL", GMAIL_USER).strip()
 DRY_RUN:            bool = os.getenv("NOTIFY_DRY_RUN", "false").lower() in ("true", "1", "yes")
 MAX_RETRIES:        int  = int(os.getenv("NOTIFY_MAX_RETRIES", "3"))
@@ -621,14 +621,14 @@ def _send_via_smtp(subject: str, plain: str, html_body: str) -> bool:
     Returns True on success, False if all attempts fail.
     """
     gmail_user = GMAIL_USER or os.getenv("GMAIL_USER", "").strip()
-    gmail_pass = GMAIL_APP_PASSWORD or os.getenv("GMAIL_APP_PASSWORD", "").strip()
+    gmail_pass = GMAIL_APP_PASS or os.getenv("GMAIL_APP_PASS", "").strip()
     notify_to  = NOTIFY_EMAIL or os.getenv("NOTIFY_EMAIL", gmail_user).strip()
 
     if not gmail_user:
         log.error("[Notifier] GMAIL_USER is not set — cannot send email.")
         return False
     if not gmail_pass:
-        log.error("[Notifier] GMAIL_APP_PASSWORD is not set — cannot send email.")
+        log.error("[Notifier] GMAIL_APP_PASS is not set — cannot send email.")
         return False
     if not notify_to:
         log.error("[Notifier] NOTIFY_EMAIL is not set — cannot send email.")
@@ -666,7 +666,7 @@ def _send_via_smtp(subject: str, plain: str, html_body: str) -> bool:
         except smtplib.SMTPAuthenticationError as exc:
             log.error(
                 "[Notifier] Gmail auth failed (attempt %d) — "
-                "verify GMAIL_USER and GMAIL_APP_PASSWORD: %s",
+                "verify GMAIL_USER and GMAIL_APP_PASS: %s",
                 attempt, exc,
             )
             return False   # Auth errors are permanent — don't retry
@@ -988,17 +988,17 @@ if __name__ == "__main__":
     orig_dry = _notifier_mod.DRY_RUN
     _notifier_mod.DRY_RUN = False  # Force real path to test credential check
     old_user = _notifier_mod.GMAIL_USER
-    old_pass = _notifier_mod.GMAIL_APP_PASSWORD
+    old_pass = _notifier_mod.GMAIL_APP_PASS
     _notifier_mod.GMAIL_USER         = ""
-    _notifier_mod.GMAIL_APP_PASSWORD = ""
+    _notifier_mod.GMAIL_APP_PASS = ""
     no_cred_result = _notifier_mod._send_via_smtp("test", "test", "<p>test</p>")
     _chk("Missing user returns False", no_cred_result, False)
     _notifier_mod.GMAIL_USER         = "test@gmail.com"
-    _notifier_mod.GMAIL_APP_PASSWORD = ""
+    _notifier_mod.GMAIL_APP_PASS = ""
     no_pass_result = _notifier_mod._send_via_smtp("test", "test", "<p>test</p>")
     _chk("Missing password returns False", no_pass_result, False)
     _notifier_mod.GMAIL_USER         = old_user
-    _notifier_mod.GMAIL_APP_PASSWORD = old_pass
+    _notifier_mod.GMAIL_APP_PASS = old_pass
     _notifier_mod.DRY_RUN = orig_dry
 
     # ── 13. Plain text is always 7-bit safe ──────────────────────────────

@@ -13,7 +13,7 @@
 #
 # Required Secrets (Settings → Secrets and variables → Actions → New secret):
 #   GMAIL_USER          Sender Gmail address        e.g. yourbot@gmail.com
-#   GMAIL_APP_PASSWORD  16-char Google App Password (NOT your account password)
+#   GMAIL_APP_PASS  16-char Google App Password (NOT your account password)
 #   NOTIFY_EMAIL        Recipient email address
 #
 # Optional Secrets (uncomment the relevant env: lines below to activate):
@@ -26,7 +26,7 @@
 #   1. https://myaccount.google.com/security
 #   2. Enable 2-Step Verification
 #   3. Search "App Passwords" → Mail → Other → copy 16-char password
-#   4. Add as GMAIL_APP_PASSWORD secret in this repo
+#   4. Add as GMAIL_APP_PASS secret in this repo
 # ============================================================================
 
 name: CSGOCASES Promo Code Monitor
