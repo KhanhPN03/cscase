@@ -38,11 +38,12 @@
         "bd4edc00179397b3a0e371c2034e80ef314355e294f3ced44092f907f75b1b95",
         "327f6388690527addc68a4aee1bb27ab6438d2f7796f89653f8469829f5422ac",
         "e23f87a520295e45037a09b0a748da70de533fc0571a5a868a44ffd01f0bec97",
-        "03555db29a4e55b6ccb615a24187c0807709066b3481a681d463d3b52d3fb7dc"
+        "03555db29a4e55b6ccb615a24187c0807709066b3481a681d463d3b52d3fb7dc",
+        "5e946a89b0a14c9643c10c67c7e51d38db0f41627208ea5996f64f6a3faca7fb"
       ],
-      "latest_hash": "03555db29a4e55b6ccb615a24187c0807709066b3481a681d463d3b52d3fb7dc",
+      "latest_hash": "5e946a89b0a14c9643c10c67c7e51d38db0f41627208ea5996f64f6a3faca7fb",
       "latest_url": "https://www.facebook.com/csgocasescom/",
-      "last_checked": "2026-06-02T22:31:28Z"
+      "last_checked": "2026-06-03T00:14:42Z"
     }
   },
   "discord": {
@@ -62,5 +63,5 @@
     }
   },
   "known_codes": [],
-  "last_run": "2026-06-02T22:31:51Z"
+  "last_run": "2026-06-03T00:14:46Z"
 }
